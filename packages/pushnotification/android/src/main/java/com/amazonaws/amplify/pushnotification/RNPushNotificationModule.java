@@ -16,11 +16,19 @@ package com.amazonaws.amplify.pushnotification;
 import android.util.Log;
 import android.os.Bundle;
 
+import android.app.Activity;
+import android.content.Intent;
+
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+
+import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.ActivityEventListener;
 
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactInstanceManager;
@@ -28,12 +36,14 @@ import com.facebook.react.ReactInstanceManager;
 import com.google.firebase.iid.FirebaseInstanceId;
 
 import com.amazonaws.amplify.pushnotification.modules.RNPushNotificationJsDelivery;
+import com.amazonaws.amplify.pushnotification.modules.RNPushNotificationCommon;
 
-public class RNPushNotificationModule extends ReactContextBaseJavaModule {
+public class RNPushNotificationModule extends ReactContextBaseJavaModule implements ActivityEventListener
     private static final String LOG_TAG = "RNPushNotificationModule";
 
     public RNPushNotificationModule(ReactApplicationContext reactContext) {
         super(reactContext);
+        reactContext.addActivityEventListener(this);
     }
 
     @Override
@@ -55,5 +65,27 @@ public class RNPushNotificationModule extends ReactContextBaseJavaModule {
         Bundle bundle = new Bundle();
         bundle.putString("refreshToken", refreshedToken);
         jsDelivery.emitTokenReceived(bundle);
+    }
+
+    @ReactMethod
+    public void getInitialNotification(Promise promise) {
+        WritableMap params = Arguments.createMap();
+        Activity activity = getCurrentActivity();
+        if (activity != null) {
+            Bundle bundle = RNPushNotificationCommon.getNotificationBundleFromIntent(activity.getIntent());
+            if (bundle != null) {
+                bundle.putBoolean("foreground", false);
+                String bundleString = RNPushNotificationCommon.convertJSON(bundle);
+                params.putString("dataJSON", bundleString);
+            }
+        }
+        promise.resolve(params);
+    }
+     public void onNewIntent(Intent intent) {
+        Bundle bundle = RNPushNotificationCommon.getNotificationBundleFromIntent(intent);
+        if (bundle != null) intent.putExtra("notification", bundle);
+    }
+     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+        // Ignored, required to implement ActivityEventListener
     }
 }
